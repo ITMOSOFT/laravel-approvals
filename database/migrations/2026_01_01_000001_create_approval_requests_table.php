@@ -8,12 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('itmosoft-approvals.table_names.requests', 'approval_requests'), function (Blueprint $table) {
+        Schema::create(config('itmosoft-approvals.table_names.requests', 'approval_requests'), function (Blueprint $table): void {
             $table->id();
             $table->nullableMorphs('subject');
             $table->nullableMorphs('requester');
             $table->string('workflow_key', 120);
-            $table->string('status', 24)->default('pending')->index();
+            $table->string('status', 24)->default(config('itmosoft-approvals.statuses.pending', 'pending'))->index();
             $table->unsignedInteger('current_step')->default(1);
             $table->json('payload')->nullable();
             $table->timestamp('submitted_at')->nullable();

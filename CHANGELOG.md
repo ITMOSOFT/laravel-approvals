@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1] - 2026-11-25
+
+- Require persisted subject, requester, approver, and approval request models.
+- Validate workflow key length and JSON-encodability of approval payloads.
+- Validate request and step status fields and step numbering.
+- Apply configured status values consistently during creation, decisions, cancellation, and pending checks.
+- Validate configured status values and require distinct values.
+- Expand feature coverage for invalid inputs, persisted model requirements, and configurable statuses.
+
 ## [1.0.0] - 2026-11-17
 
 ### Added

@@ -8,12 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create(config('itmosoft-approvals.table_names.steps', 'approval_steps'), function (Blueprint $table) {
+        Schema::create(config('itmosoft-approvals.table_names.steps', 'approval_steps'), function (Blueprint $table): void {
             $table->id();
             $table->foreignId('approval_request_id')->constrained(config('itmosoft-approvals.table_names.requests', 'approval_requests'))->cascadeOnDelete();
             $table->unsignedInteger('step_number');
             $table->nullableMorphs('approver');
-            $table->string('status', 24)->default('pending')->index();
+            $table->string('status', 24)->default(config('itmosoft-approvals.statuses.pending', 'pending'))->index();
             $table->text('comment')->nullable();
             $table->timestamp('decided_at')->nullable();
             $table->timestamps();

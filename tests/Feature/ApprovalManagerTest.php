@@ -10,6 +10,7 @@ use ItmoSoft\Approvals\Models\ApprovalRequest;
 use ItmoSoft\Approvals\Tests\Fixtures\Purchase;
 use ItmoSoft\Approvals\Tests\Fixtures\User;
 use ItmoSoft\Approvals\Tests\TestCase;
+use LogicException;
 
 class ApprovalManagerTest extends TestCase
 {
@@ -17,12 +18,12 @@ class ApprovalManagerTest extends TestCase
     {
         parent::setUp();
 
-        Schema::create('users', function (Blueprint $table) {
+        Schema::create('users', function (Blueprint $table): void {
             $table->id();
             $table->string('name');
         });
 
-        Schema::create('purchases', function (Blueprint $table) {
+        Schema::create('purchases', function (Blueprint $table): void {
             $table->id();
             $table->string('reference');
         });
@@ -133,6 +134,82 @@ class ApprovalManagerTest extends TestCase
 
         $this->expectException(ApprovalException::class);
         $manager->approve($request, $first);
+    }
+
+    public function test_it_rejects_unsaved_subject_requester_and_approver_models(): void
+    {
+        [$subject, $requester, $first] = $this->records();
+        $manager = app(ApprovalManager::class);
+
+        try {
+            $manager->create(new Purchase(['reference' => 'NEW']), 'purchase', $requester, [
+                ['approver' => $first],
+            ]);
+            $this->fail('Unsaved subject should be rejected.');
+        } catch (LogicException) {
+            $this->assertTrue(true);
+        }
+
+        try {
+            $manager->create($subject, 'purchase', new User(['name' => 'New requester']), [
+                ['approver' => $first],
+            ]);
+            $this->fail('Unsaved requester should be rejected.');
+        } catch (LogicException) {
+            $this->assertTrue(true);
+        }
+
+        try {
+            $manager->create($subject, 'purchase', $requester, [
+                ['approver' => new User(['name' => 'New approver'])],
+            ]);
+            $this->fail('Unsaved approver should be rejected.');
+        } catch (LogicException) {
+            $this->assertTrue(true);
+        }
+    }
+
+    public function test_it_rejects_invalid_workflow_key_and_payload(): void
+    {
+        [$subject, $requester, $first] = $this->records();
+        $manager = app(ApprovalManager::class);
+
+        try {
+            $manager->create($subject, str_repeat('x', 121), $requester, [['approver' => $first]]);
+            $this->fail('Oversized workflow key should be rejected.');
+        } catch (ApprovalException) {
+            $this->assertTrue(true);
+        }
+
+        $resource = fopen('php://memory', 'r');
+        try {
+            $manager->create($subject, 'purchase', $requester, [['approver' => $first]], ['bad' => $resource]);
+            $this->fail('Non-JSON payload should be rejected.');
+        } catch (ApprovalException) {
+            $this->assertTrue(true);
+        } finally {
+            if (is_resource($resource)) {
+                fclose($resource);
+            }
+        }
+    }
+
+    public function test_it_uses_configured_status_values(): void
+    {
+        config([
+            'itmosoft-approvals.statuses.pending' => 'waiting',
+            'itmosoft-approvals.statuses.approved' => 'accepted',
+            'itmosoft-approvals.statuses.rejected' => 'declined',
+            'itmosoft-approvals.statuses.cancelled' => 'withdrawn',
+        ]);
+
+        [$subject, $requester, $first] = $this->records();
+        $manager = app(ApprovalManager::class);
+        $request = $manager->create($subject, 'purchase', $requester, [['approver' => $first]]);
+
+        $this->assertSame('waiting', $request->status);
+        $request = $manager->approve($request, $first);
+        $this->assertSame('accepted', $request->status);
     }
 
     private function records(): array
